@@ -1,0 +1,12 @@
+Created with the built-in imagegen tool on 2026-09-26.
+
+Prompt: A native macOS Dock icon for Click: a dark graphite ergonomic mouse with
+silver scroll wheel and restrained blue accent, sculpted on a pearl ceramic
+rounded-square tile. Tactile materials, soft studio light, subtle contact shadow,
+strong silhouette at small sizes, transparent padding. No text or brand logos.
+
+Refinement: Preserve the mouse, materials and palette; clean the tile perimeter
+and transparent padding, with the lighting contained inside the tile.
+
+The committed PNG is the master artwork. Run swift Scripts/build_icon.swift to
+regenerate every .icns resolution locally with AppKit and iconutil.
