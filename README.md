@@ -2,7 +2,7 @@
 
 Click is a local macOS menu bar app for configuring Logitech MX Master mice. It uses SwiftUI and AppKit, talks to the mouse over HID++, and processes mouse events with Core Graphics. It is an MIT-licensed fork of [LoLiMouse](https://github.com/fedorananin/lolimouse).
 
-**Development status:** the current source is **0.1.0, build 7**. Hardware
+**Development status:** the current source is **0.1.0, build 8**. Hardware
 acceptance is incomplete; device support has not yet been verified.
 
 ## What it does
@@ -39,7 +39,7 @@ Scripts/build_and_run.sh
 
 Quit Logi Options+ and other mouse remappers before enabling Click's controls. Open the app, grant the requested Accessibility and Input Monitoring permissions in System Settings, and reopen Click if needed. Rebuilding an ad-hoc signed app may require granting permissions again. If System Settings shows Click enabled but Click still reports missing access after a restart, remove only Click from each permission list, add the installed app again, and reopen it.
 
-Select a button on the mouse diagram to assign a shortcut, navigation, editing, media, or app-launch action. Add an application to give it a separate set of button bindings. Click also exposes supported pointer/DPI, wheel/SmartShift, scrolling, and thumb gesture controls. Keep each setting disabled until you want Click to manage it. Configuration is stored locally at `~/Library/Application Support/Click/config.json`. Launch at login is optional. **Click → Pause customizations** temporarily stops applying your bindings and restores previous device settings; **Resume customizations** reapplies them. macOS Accessibility and Input Monitoring grants stay unchanged. This command is also available from the optional menu bar icon.
+The mouse picker lists connected mice and uses their macOS Bluetooth names. Settings for disconnected mice stay saved and reappear when they reconnect. Select a button on the mouse diagram to assign a shortcut, navigation, editing, media, or app-launch action. Add an application to give it a separate set of button bindings. Click also exposes supported pointer/DPI, wheel/SmartShift, scrolling, and thumb gesture controls. Keep each setting disabled until you want Click to manage it. Configuration is stored locally at `~/Library/Application Support/Click/config.json`. Launch at login is optional. **Click → Pause customizations** temporarily stops applying your bindings and restores previous device settings; **Resume customizations** reapplies them. macOS Accessibility and Input Monitoring grants stay unchanged. This command is also available from the optional menu bar icon.
 
 There is no account, cloud configuration, analytics, automatic updater, or application network client. The privacy check is a source regression scan; it is not a network sandbox. The app uses some private macOS input symbols, which can change with macOS updates.
 

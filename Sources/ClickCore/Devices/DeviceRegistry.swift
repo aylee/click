@@ -37,7 +37,14 @@ public struct DeviceCapabilities: Equatable {
 /// follow the mouse rather than the cable.
 public final class ManagedDevice: Identifiable, ObservableObject {
     public let key: String
-    public let displayName: String
+    /// Firmware model name; retained for matching services across transports.
+    public let modelName: String
+    /// Direct Bluetooth mice use the name shown by macOS, including user renames.
+    public var displayName: String {
+        if endpoint?.transport?.hasPrefix("Bluetooth") == true,
+           let name = pointerService?.product, !name.isEmpty { return name }
+        return modelName
+    }
 
     /// The HID++ conversation, when the device speaks it. Non-Logitech mice
     /// still get pointer, scrolling and button handling — they just have no
@@ -79,7 +86,7 @@ public final class ManagedDevice: Identifiable, ObservableObject {
         isOnline: Bool = true
     ) {
         self.key = key
-        self.displayName = displayName
+        self.modelName = displayName
         self.target = target
         self.endpoint = endpoint
         self.pointerService = pointerService
@@ -247,7 +254,7 @@ public final class DeviceRegistry: ObservableObject {
                let owner = discovered.first(where: { candidate in
                    candidate.target != nil && ServiceMatching.service(
                        Self.identity(of: service),
-                       belongsToDeviceNamed: candidate.displayName,
+                       belongsToDeviceNamed: candidate.modelName,
                        vendorID: HIDPP.vendorID
                    )
                }) {

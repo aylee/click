@@ -24,13 +24,7 @@ struct RootView: View {
 
     private var devices: [ManagedDevice] {
         if let previewDevice { return [previewDevice] }
-        let live = registry.devices.filter { !$0.isTrackpad }
-        let liveKeys = Set(live.map(\.key))
-        let saved = store.configuration.devices.keys.sorted().filter { !liveKeys.contains($0) }.map { key in
-            ManagedDevice(key: key, displayName: store.configuration.device(key).displayName ?? "Saved mouse",
-                          target: nil, endpoint: nil, pointerService: nil, isOnline: false)
-        }
-        return live + saved
+        return registry.devices.filter { !$0.isTrackpad }
     }
     private var selectedDevice: ManagedDevice? { devices.first { $0.key == selectedKey } ?? devices.first }
     private var permissionsOK: Bool { controller.hasAccessibility && controller.hasInputMonitoring }
@@ -81,7 +75,7 @@ struct RootView: View {
         .tint(.indigo)
         .onAppear { selectedKey = devices.first?.key }
         .onChange(of: registry.devices.map(\.key)) { _, _ in
-            if selectedKey == nil { selectedKey = devices.first?.key }
+            if !devices.contains(where: { $0.key == selectedKey }) { selectedKey = devices.first?.key }
         }
     }
 
@@ -99,16 +93,12 @@ struct RootView: View {
                             Button(candidate.displayName) { selectedKey = candidate.key }
                         }
                     } label: {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(device.displayName).font(.callout.weight(.medium)).lineLimit(2).multilineTextAlignment(.leading)
-                            HStack(spacing: 5) {
-                                Circle().fill(previewDevice != nil ? Color.secondary : device.isOnline ? .green : .orange)
-                                    .frame(width: 5, height: 5)
-                                Text(previewDevice != nil ? "Preview" : device.isOnline ? "Connected" : "Disconnected")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                        }.frame(maxWidth: .infinity, alignment: .leading)
+                        Text(device.displayName).font(.callout.weight(.medium))
+                            .lineLimit(2).multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }.menuStyle(.borderlessButton)
+                    Label(previewDevice != nil ? "Preview" : "Connected", systemImage: "circle.fill")
+                        .font(.caption).foregroundStyle(.secondary)
                 } else {
                     Text("No mouse connected").font(.callout).foregroundStyle(.secondary)
                 }
