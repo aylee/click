@@ -939,19 +939,73 @@ suite("Local settings and application bindings") {
 suite("Button ownership and raw movement") {
     test("only the mouse whose down was swallowed loses its matching release") {
         var tracker = ButtonPressTracker()
-        tracker.swallow(button: 3, senderID: 101)
-        expect(!tracker.release(button: 3, senderID: 202))
-        expect(!tracker.release(button: 4, senderID: 101))
-        expect(!tracker.release(button: 3, senderID: nil))
-        expect(tracker.release(button: 3, senderID: 101))
-        expect(!tracker.release(button: 3, senderID: 101))
+        tracker.swallow(button: 3, senderID: 101, sourcePID: 0)
+        expect(!tracker.release(button: 3, senderID: 202, sourcePID: 0))
+        expect(!tracker.release(button: 4, senderID: 101, sourcePID: 0))
+        expect(!tracker.release(button: 3, senderID: nil, sourcePID: 0))
+        expect(tracker.release(button: 3, senderID: 101, sourcePID: 0))
+        expect(!tracker.release(button: 3, senderID: 101, sourcePID: 0))
         expect(tracker.isEmpty)
     }
 
-    test("unknown input sources are never marked as owned") {
+    test("untagged events from another process are never marked as owned") {
         var tracker = ButtonPressTracker()
-        tracker.swallow(button: 3, senderID: nil)
+        tracker.swallow(button: 3, senderID: nil, sourcePID: 42)
         expect(tracker.isEmpty)
+    }
+
+    test("three untagged hardware presses select the shortcut and own both edges") {
+        let mappings = [ButtonMapping(button: 4, action: .keyPress(KeyCombo(keyCode: 18)))]
+        var tracker = ButtonPressTracker()
+        for _ in 0..<3 {
+            let key = AppController.buttonDeviceKey(
+                senderID: nil, sourcePID: 0,
+                senderToKey: [101: "mouse"], connectedMouseKeys: ["mouse"], mouseServiceCount: 1
+            )
+            expectEqual(key, "mouse")
+            let mapping = ButtonMapping.bestMatch(
+                in: key == "mouse" ? mappings : [], button: 4, held: []
+            )
+            expectEqual(mapping?.action, .keyPress(KeyCombo(keyCode: 18)))
+            tracker.swallow(button: 4, senderID: nil, sourcePID: 0)
+            expect(!tracker.release(button: 4, senderID: 101, sourcePID: 0))
+            expect(!tracker.release(button: 4, senderID: nil, sourcePID: 42))
+            expect(!tracker.release(button: 3, senderID: nil, sourcePID: 0))
+            // Release ownership does not depend on the profile still being active.
+            expect(tracker.release(button: 4, senderID: nil, sourcePID: 0))
+            expect(!tracker.release(button: 4, senderID: nil, sourcePID: 0))
+            expect(tracker.isEmpty)
+        }
+    }
+
+    test("button fallback requires one live mouse and an untagged hardware event") {
+        let senders: [UInt64: String] = [101: "mouse", 202: "second"]
+        expectNil(AppController.buttonDeviceKey(
+            senderID: nil, sourcePID: 0, senderToKey: senders, connectedMouseKeys: [], mouseServiceCount: 1
+        ))
+        expectNil(AppController.buttonDeviceKey(
+            senderID: nil, sourcePID: 0, senderToKey: senders,
+            connectedMouseKeys: ["mouse", "second"], mouseServiceCount: 2
+        ))
+        expectNil(AppController.buttonDeviceKey(
+            senderID: nil, sourcePID: 42, senderToKey: senders, connectedMouseKeys: ["mouse"], mouseServiceCount: 1
+        ))
+        expectNil(AppController.buttonDeviceKey(
+            senderID: 999, sourcePID: 0, senderToKey: senders, connectedMouseKeys: ["mouse"], mouseServiceCount: 1
+        ))
+        // Two identical generic mice share a configuration key; neither may win.
+        expectNil(AppController.buttonDeviceKey(
+            senderID: nil, sourcePID: 0, senderToKey: senders,
+            connectedMouseKeys: ["mouse"], mouseServiceCount: 2
+        ))
+        expectNil(AppController.buttonDeviceKey(
+            senderID: nil, sourcePID: 0, senderToKey: senders,
+            connectedMouseKeys: ["mouse"], mouseServiceCount: 0
+        ))
+        expectEqual(AppController.buttonDeviceKey(
+            senderID: 202, sourcePID: 0, senderToKey: senders,
+            connectedMouseKeys: ["mouse", "second"], mouseServiceCount: 2
+        ), "second")
     }
 
     test("tap-only thumb bindings leave pointer movement enabled") {

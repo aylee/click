@@ -358,7 +358,10 @@ public final class AppController: ObservableObject {
         let snapshot = self.snapshot
         if type == .otherMouseUp {
             let button = Int(event.getIntegerValueField(.mouseEventButtonNumber))
-            if swallowedButtons.release(button: button, senderID: event.senderID) {
+            if swallowedButtons.release(
+                button: button, senderID: event.senderID,
+                sourcePID: event.getIntegerValueField(.eventSourceUnixProcessID)
+            ) {
                 if swallowedButtons.isEmpty {
                     DispatchQueue.main.async { [weak self] in self?.updateEventTap() }
                 }
@@ -380,7 +383,7 @@ public final class AppController: ObservableObject {
             }
             return event
         case .otherMouseDown, .otherMouseUp:
-            return handleButton(event, type: type, snapshot: snapshot)
+            return handleButton(event, snapshot: snapshot)
         default:
             return event
         }
@@ -402,10 +405,16 @@ public final class AppController: ObservableObject {
         return processor.process(current)
     }
 
-    private func handleButton(_ event: CGEvent, type: CGEventType, snapshot: EventSnapshot) -> CGEvent? {
+    private func handleButton(_ event: CGEvent, snapshot: EventSnapshot) -> CGEvent? {
         let button = Int(event.getIntegerValueField(.mouseEventButtonNumber))
 
-        guard let key = snapshot.deviceKey(for: event) else {
+        let senderID = event.senderID
+        let sourcePID = event.getIntegerValueField(.eventSourceUnixProcessID)
+        guard let key = Self.buttonDeviceKey(
+            senderID: senderID, sourcePID: sourcePID,
+            senderToKey: snapshot.senderToKey, connectedMouseKeys: Array(snapshot.devices.keys),
+            mouseServiceCount: snapshot.mouseServiceCount
+        ) else {
             noteUnknownSender(of: event)
             return event
         }
@@ -419,8 +428,20 @@ public final class AppController: ObservableObject {
         }
 
         guard actions.run(mapping.action, device: snapshot.devices[key]) else { return event }
-        swallowedButtons.swallow(button: button, senderID: event.senderID)
+        swallowedButtons.swallow(button: button, senderID: senderID, sourcePID: sourcePID)
         return nil
+    }
+
+    /// Some Bluetooth button events carry no HID sender. Only attribute those
+    /// to a mouse when exactly one device and one non-trackpad service are live.
+    /// Multiple services fail closed, even when they may belong to one mouse.
+    package static func buttonDeviceKey(
+        senderID: UInt64?, sourcePID: Int64,
+        senderToKey: [UInt64: String], connectedMouseKeys: [String], mouseServiceCount: Int
+    ) -> String? {
+        if let senderID { return senderToKey[senderID] }
+        guard sourcePID == 0, connectedMouseKeys.count == 1, mouseServiceCount == 1 else { return nil }
+        return connectedMouseKeys.first
     }
 
     /// An event arrived from a sender the registry does not know. That is
@@ -452,6 +473,7 @@ public final class AppController: ObservableObject {
         var modifierTransformers: [String: ModifierKeyTransformer] = [:]
         var buttonMappings: [String: [ButtonMapping]] = [:]
         var devices: [String: ManagedDevice] = [:]
+        var mouseServiceCount = 0
 
         func deviceKey(for event: CGEvent) -> String? {
             if let senderID = event.senderID, let key = senderToKey[senderID] {
@@ -570,7 +592,8 @@ public final class AppController: ObservableObject {
             processors: processors,
             modifierTransformers: transformers,
             buttonMappings: buttonMappings,
-            devices: deviceMap
+            devices: deviceMap,
+            mouseServiceCount: registry.mouseServiceCount
         )
     }
 
@@ -673,18 +696,20 @@ public final class AppController: ObservableObject {
     }
 }
 
-/// Unknown sources are never remapped. A second mouse cannot consume the first one's release.
+/// Called only after a routed action consumes the down. Remember an untagged
+/// hardware press through configuration changes so its matching up is consumed.
+/// Tagged releases and events posted by other processes cannot consume it.
 package struct ButtonPressTracker {
     package init() {}
-    private struct Press: Hashable { let sender: UInt64; let button: Int }
+    private struct Press: Hashable { let sender: UInt64?; let button: Int }
     private var pressed: Set<Press> = []
     package var isEmpty: Bool { pressed.isEmpty }
-    package mutating func swallow(button: Int, senderID: UInt64?) {
-        guard let senderID else { return }
+    package mutating func swallow(button: Int, senderID: UInt64?, sourcePID: Int64) {
+        guard senderID != nil || sourcePID == 0 else { return }
         pressed.insert(Press(sender: senderID, button: button))
     }
-    package mutating func release(button: Int, senderID: UInt64?) -> Bool {
-        guard let senderID else { return false }
+    package mutating func release(button: Int, senderID: UInt64?, sourcePID: Int64) -> Bool {
+        guard senderID != nil || sourcePID == 0 else { return false }
         return pressed.remove(Press(sender: senderID, button: button)) != nil
     }
 }

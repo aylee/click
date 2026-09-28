@@ -104,6 +104,9 @@ public final class DeviceRegistry: ObservableObject {
     private static let log = LoLiLog.devices
 
     @Published public private(set) var devices: [ManagedDevice] = []
+    /// Count before configuration-key deduplication: identical generic mice
+    /// can share a key, but must not enable untagged-button routing together.
+    package private(set) var mouseServiceCount = 0
 
     /// Fires after every rescan, with the devices that appeared or came back.
     /// The reconciler uses this to know when hardware settings need reapplying.
@@ -282,6 +285,7 @@ public final class DeviceRegistry: ObservableObject {
                     senderChanged: old.senderIDs != device.senderIDs)
             }
             reapplyOnScan = false
+            mouseServiceCount = allServices.filter { !$0.isTrackpad }.count
             devices = result
             // The sender IDs are what the event tap matches scroll and button
             // events against; logging them is the only way to tell "the tap

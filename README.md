@@ -2,7 +2,7 @@
 
 Click is a local macOS menu bar app for configuring Logitech MX Master mice. It uses SwiftUI and AppKit, talks to the mouse over HID++, and processes mouse events with Core Graphics. It is an MIT-licensed fork of [LoLiMouse](https://github.com/fedorananin/lolimouse).
 
-**Development status:** the current source is **0.1.0, build 6**. Hardware
+**Development status:** the current source is **0.1.0, build 7**. Hardware
 acceptance is incomplete; device support has not yet been verified.
 
 ## What it does
